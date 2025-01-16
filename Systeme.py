@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 import os
 import openpyxl
-from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import LineChart, Reference
 
@@ -99,6 +99,29 @@ def add_individual_charts(ws):
         # Ajouter le graphique à la feuille
         ws.add_chart(chart, chart_positions[i])
 
+# Fonction pour appliquer les couleurs sur les valeurs au-dessus et en-dessous de la moyenne
+def apply_colors(ws, col_idx):
+    values = []
+    max_row = ws.max_row
+
+    # Récupérer les valeurs de la colonne
+    for row in range(2, max_row + 1):
+        value = ws.cell(row=row, column=col_idx).value
+        values.append(value)
+    
+    # Calcul de la moyenne
+    average_value = sum(values) / len(values)
+    
+    # Appliquer les couleurs en fonction de la moyenne
+    for row in range(2, max_row + 1):
+        cell = ws.cell(row=row, column=col_idx)
+        value = cell.value
+        
+        if value > average_value:
+            cell.fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")  # Rouge clair
+        elif value < average_value:
+            cell.fill = PatternFill(start_color="CCFFCC", end_color="CCFFCC", fill_type="solid")  # Vert clair
+
 # Fonction pour ajouter les données dans le fichier Excel
 def log_system_usage():
     if os.path.exists("Rapport_systeme.xlsx"):
@@ -128,9 +151,13 @@ def log_system_usage():
     # Mise en forme des données
     for col in range(1, 6):
         cell = ws.cell(row=new_row, column=col)
-        cell.font = Font(name='Calibri', size=10)
+        cell.font = Font(name='Calibri', size=10, bold=True)
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+    
+    # Appliquer les couleurs sur les valeurs au-dessus et en-dessous de la moyenne
+    for col_idx in range(2, 6):
+        apply_colors(ws, col_idx)
     
     # Ajouter ou mettre à jour les graphiques individuels
     add_individual_charts(ws)
