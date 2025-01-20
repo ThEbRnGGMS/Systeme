@@ -21,7 +21,7 @@ def create_excel_file(file_name):
     for col, header in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = Font(bold=True, color="FFFFFF")
-        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.alignment = Alignment(horizontal="center", vertical="center")  # Centrer horizontalement et verticalement
         cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
         cell.border = Border(bottom=Side(style="thin"))
 
@@ -59,9 +59,10 @@ def get_network_usage_in_mbps():
 def get_http_connections_count():
     http_count = 0
     for conn in psutil.net_connections(kind='inet'):
-        if conn.status == 'ESTABLISHED' and conn.laddr.port in (80, 443):
+        if conn.status == 'ESTABLISHED' and conn.raddr and conn.raddr.port in (80, 443):
             http_count += 1
     return http_count
+
 
 # Fonction pour appliquer des couleurs conditionnelles
 def apply_colors(ws, col_idx):
@@ -93,6 +94,18 @@ def add_individual_charts(ws):
 
         ws.add_chart(chart, chart_positions[i])
 
+# Fonction pour appliquer des bordures noires autour de toutes les cellules
+def apply_borders(ws):
+    # Appliquer les bordures noires à chaque cellule
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        for cell in row:
+            cell.border = Border(
+                top=Side(style="thin", color="000000"),
+                bottom=Side(style="thin", color="000000"),
+                left=Side(style="thin", color="000000"),
+                right=Side(style="thin", color="000000")
+            )
+
 # Fonction pour sauvegarder les données supprimées dans un fichier avec la même mise en forme
 def save_deleted_data(deleted_data):
     file_name = "OLD_DONNEE.xlsx"
@@ -107,6 +120,14 @@ def save_deleted_data(deleted_data):
 
     for col_idx in range(2, 6):
         apply_colors(ws, col_idx)
+
+    # Appliquer l'alignement centré pour toutes les cellules du fichier OLD_DONNEE
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=5):
+        for cell in row:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Appliquer les bordures noires pour tout le fichier
+    apply_borders(ws)
 
     add_individual_charts(ws)
     wb.save(file_name)
@@ -136,20 +157,33 @@ def log_system_usage(num):
     network_usage = get_network_usage_in_mbps()
     http_count = get_http_connections_count()
 
+    # Ajouter les nouvelles données
     ws.append([timestamp, ram_usage, cpu_usage, network_usage, http_count])
 
+    # Appliquer l'alignement centré pour la nouvelle ligne dans le fichier principal
+    for row in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row, min_col=1, max_col=5):
+        for cell in row:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Appliquer les couleurs conditionnelles
     for col_idx in range(2, 6):
         apply_colors(ws, col_idx)
 
+    # Appliquer les bordures noires pour tout le fichier
+    apply_borders(ws)
+
+    # Ajouter des graphiques individuels
     add_individual_charts(ws)
+    
+    # Sauvegarder le fichier
     wb.save(main_file)
     
     print(f"{num} - {timestamp} - RAM: {ram_usage} Go, CPU: {cpu_usage}%, Réseau: {network_usage} Mo/s, Connexions: {http_count}")
-    return num + 1  # Incrémente num et le retourne pour le tour suivant
 
 # Exécution périodique
 if __name__ == "__main__":
-    num = 1  # Initialisation de num avant la boucle principale
+    num = 0
     while True:
-        num = log_system_usage(num)  # Passe num à chaque tour et incrémente-le
+        num += 1
+        log_system_usage(num)
         time.sleep(1)
