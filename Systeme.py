@@ -112,7 +112,7 @@ def save_deleted_data(deleted_data):
     wb.save(file_name)
 
 # Fonction principale pour enregistrer les données
-def log_system_usage():
+def log_system_usage(num):
     main_file = "Rapport_systeme.xlsx"
     if not os.path.exists(main_file):
         create_excel_file(main_file)
@@ -143,10 +143,13 @@ def log_system_usage():
 
     add_individual_charts(ws)
     wb.save(main_file)
-    print(f"{timestamp} - RAM: {ram_usage} Go, CPU: {cpu_usage}%, Réseau: {network_usage} Mo/s, Connexions: {http_count}")
+    
+    print(f"{num} - {timestamp} - RAM: {ram_usage} Go, CPU: {cpu_usage}%, Réseau: {network_usage} Mo/s, Connexions: {http_count}")
+    return num + 1  # Incrémente num et le retourne pour le tour suivant
 
 # Exécution périodique
 if __name__ == "__main__":
+    num = 1  # Initialisation de num avant la boucle principale
     while True:
-        log_system_usage()
+        num = log_system_usage(num)  # Passe num à chaque tour et incrémente-le
         time.sleep(1)
