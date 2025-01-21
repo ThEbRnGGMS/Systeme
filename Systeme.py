@@ -6,42 +6,44 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import LineChart, Reference
+import socket
+import re
 
-# Création d'un fichier Excel et initialisation de la feuille
+# Create an Excel file and initialize the sheet
 def create_excel_file(file_name):
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Utilisation des ressources"
+    ws.title = "Resource Usage"
 
-    # Ajout des en-têtes de colonnes
-    headers = ["Date", "Utilisation de la RAM (Go)", "Utilisation du CPU (%)", "Utilisation du réseau (Mo/s)", "Nombre de connexions HTTP/HTTPS"]
+    # Add column headers
+    headers = ["Date", "RAM Usage (GB)", "CPU Usage (%)", "Network Usage (MB/s)", "Number of HTTP/HTTPS Connections"]
     ws.append(headers)
 
-    # Mise en forme des en-têtes
+    # Format the headers
     for col, header in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = Font(bold=True, color="FFFFFF")
-        cell.alignment = Alignment(horizontal="center", vertical="center")  # Centrer horizontalement et verticalement
+        cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
         cell.border = Border(bottom=Side(style="thin"))
 
-    # Ajustement de la largeur des colonnes
+    # Adjust the column widths
     for col in range(1, 6):
         column_letter = get_column_letter(col)
         ws.column_dimensions[column_letter].width = 25
 
     wb.save(file_name)
 
-# Fonction pour obtenir l'utilisation de la RAM en Go
+# Function to get RAM usage in GB
 def get_ram_usage_in_gb():
     ram = psutil.virtual_memory()
     return round(ram.used / (1024 ** 3), 2)
 
-# Fonction pour obtenir l'utilisation du CPU en %
+# Function to get CPU usage in %
 def get_cpu_usage_in_percent():
     return psutil.cpu_percent(interval=1)
 
-# Fonction pour obtenir l'utilisation du réseau en Mo/s
+# Function to get network usage in MB/s
 def get_network_usage_in_mbps():
     net_io = psutil.net_io_counters()
     bytes_sent = net_io.bytes_sent
@@ -55,7 +57,7 @@ def get_network_usage_in_mbps():
 
     return round(sent_per_sec + recv_per_sec, 2)
 
-# Fonction pour obtenir le nombre de connexions HTTP/HTTPS
+# Function to get the number of HTTP/HTTPS connections
 def get_http_connections_count():
     http_count = 0
     for conn in psutil.net_connections(kind='inet'):
@@ -63,8 +65,46 @@ def get_http_connections_count():
             http_count += 1
     return http_count
 
+# Function to get the domain name from an IP address
+def get_domain_from_ip(ip):
+    try:
+        # Reverse lookup of the IP to get a domain name
+        domain = socket.gethostbyaddr(ip)
+        domain_name = domain[0]
+        
+        # If the domain seems to be an IP address or reverse domain (e.g., "ip-xxx-x-x-x")
+        # we ignore it and return None
+        if re.match(r"^(?:\d{1,3}\.){3}\d{1,3}$", domain_name) or "ip-" in domain_name:
+            return None
+        
+        # Check if the domain is a valid domain (e.g., google.com)
+        if domain_name and "." in domain_name:
+            return domain_name
+        else:
+            return None
+    except (socket.herror, socket.gaierror):
+        return None
 
-# Fonction pour appliquer des couleurs conditionnelles
+# Function to collect data on HTTP/HTTPS requests
+def get_domain_usage_data():
+    domain_data = {}
+
+    for conn in psutil.net_connections(kind='inet'):
+        if conn.status == 'ESTABLISHED' and conn.raddr and conn.raddr.port in (80, 443):
+            ip = conn.raddr.ip
+            domain = get_domain_from_ip(ip)
+            
+            if domain:
+                if domain not in domain_data:
+                    domain_data[domain] = {
+                        'request_count': 0,
+                    }
+
+                domain_data[domain]['request_count'] += 1
+
+    return domain_data
+
+# Function to apply conditional colors
 def apply_colors(ws, col_idx):
     values = [ws.cell(row=row, column=col_idx).value for row in range(2, ws.max_row + 1)]
     average_value = sum(values) / len(values) if values else 0
@@ -76,16 +116,16 @@ def apply_colors(ws, col_idx):
         elif cell.value < average_value:
             cell.fill = PatternFill(start_color="CCFFCC", end_color="CCFFCC", fill_type="solid")
 
-# Fonction pour ajouter des graphiques individuels
+# Function to add individual charts
 def add_individual_charts(ws):
     chart_positions = ["G2", "G20", "G38", "G56"]
-    titles = ["RAM (Go)", "CPU (%)", "Réseau (Mo/s)", "Connexions HTTP/HTTPS"]
+    titles = ["RAM (GB)", "CPU (%)", "Network (MB/s)", "HTTP/HTTPS Connections"]
 
     for i, col_idx in enumerate(range(2, 6), start=0):
         chart = LineChart()
         chart.title = titles[i]
         chart.y_axis.title = titles[i]
-        chart.x_axis.title = "Temps"
+        chart.x_axis.title = "Time"
 
         data = Reference(ws, min_col=col_idx, min_row=1, max_row=ws.max_row)
         categories = Reference(ws, min_col=1, min_row=2, max_row=ws.max_row)
@@ -94,9 +134,8 @@ def add_individual_charts(ws):
 
         ws.add_chart(chart, chart_positions[i])
 
-# Fonction pour appliquer des bordures noires autour de toutes les cellules
+# Function to apply black borders around all cells
 def apply_borders(ws):
-    # Appliquer les bordures noires à chaque cellule
     for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         for cell in row:
             cell.border = Border(
@@ -106,9 +145,9 @@ def apply_borders(ws):
                 right=Side(style="thin", color="000000")
             )
 
-# Fonction pour sauvegarder les données supprimées dans un fichier avec la même mise en forme
+# Function to save deleted data
 def save_deleted_data(deleted_data):
-    file_name = "OLD_DONNEE.xlsx"
+    file_name = "OLD_DATA.xlsx"
     if not os.path.exists(file_name):
         create_excel_file(file_name)
 
@@ -121,20 +160,60 @@ def save_deleted_data(deleted_data):
     for col_idx in range(2, 6):
         apply_colors(ws, col_idx)
 
-    # Appliquer l'alignement centré pour toutes les cellules du fichier OLD_DONNEE
-    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=5):
-        for cell in row:
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-
-    # Appliquer les bordures noires pour tout le fichier
     apply_borders(ws)
-
     add_individual_charts(ws)
     wb.save(file_name)
 
-# Fonction principale pour enregistrer les données
+# Function to save domain usage data with hyperlinks
+def save_domain_usage_data(domain_data, file_name="Domain_Usage_Report.xlsx"):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Domain Usage"
+
+    headers = ["Domain Name", "Request Count", "Network Usage Percentage"]
+    ws.append(headers)
+
+    total_requests = sum(domain['request_count'] for domain in domain_data.values())
+
+    for domain, data in domain_data.items():
+        percentage_usage = (data['request_count'] / total_requests) * 100 if total_requests > 0 else 0
+        # Save the domain as a full URL
+        if domain:  # Check if a valid domain was found
+            hyperlink = f"https://{domain}"
+            ws.append([hyperlink, data['request_count'], round(percentage_usage, 2)])
+            ws.cell(row=ws.max_row, column=1).hyperlink = hyperlink
+            ws.cell(row=ws.max_row, column=1).font = Font(underline="single", color="0000FF")
+
+    for col, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+        cell.border = Border(bottom=Side(style="thin"))
+
+    for col in range(1, 4):
+        column_letter = get_column_letter(col)
+        ws.column_dimensions[column_letter].width = 30
+
+    apply_colors(ws, 2)
+    apply_borders(ws)
+
+    chart = LineChart()
+    chart.title = "Domain Usage"
+    chart.y_axis.title = "Request Count"
+    chart.x_axis.title = "Domain Name"
+
+    data = Reference(ws, min_col=2, min_row=1, max_row=ws.max_row)
+    categories = Reference(ws, min_col=1, min_row=2, max_row=ws.max_row)
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(categories)
+
+    ws.add_chart(chart, "E5")
+    wb.save(file_name)
+
+# Main function to log system usage
 def log_system_usage(num):
-    main_file = "Rapport_systeme.xlsx"
+    main_file = "System_Report.xlsx"
     if not os.path.exists(main_file):
         create_excel_file(main_file)
 
@@ -157,30 +236,25 @@ def log_system_usage(num):
     network_usage = get_network_usage_in_mbps()
     http_count = get_http_connections_count()
 
-    # Ajouter les nouvelles données
+    domain_data = get_domain_usage_data()
+
     ws.append([timestamp, ram_usage, cpu_usage, network_usage, http_count])
 
-    # Appliquer l'alignement centré pour la nouvelle ligne dans le fichier principal
     for row in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row, min_col=1, max_col=5):
         for cell in row:
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Appliquer les couleurs conditionnelles
     for col_idx in range(2, 6):
         apply_colors(ws, col_idx)
 
-    # Appliquer les bordures noires pour tout le fichier
     apply_borders(ws)
-
-    # Ajouter des graphiques individuels
     add_individual_charts(ws)
-    
-    # Sauvegarder le fichier
     wb.save(main_file)
-    
-    print(f"{num} - {timestamp} - RAM: {ram_usage} Go, CPU: {cpu_usage}%, Réseau: {network_usage} Mo/s, Connexions: {http_count}")
 
-# Exécution périodique
+    save_domain_usage_data(domain_data)
+    print(f"{num} - {timestamp} - RAM: {ram_usage} GB, CPU: {cpu_usage}%, Network: {network_usage} MB/s, Connections: {http_count}")
+
+# Periodic execution
 if __name__ == "__main__":
     num = 0
     while True:
