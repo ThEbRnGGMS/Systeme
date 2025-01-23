@@ -170,20 +170,23 @@ def save_domain_usage_data(domain_data, file_name="Domain_Usage_Report.xlsx"):
     ws = wb.active
     ws.title = "Domain Usage"
 
+    # En-têtes
     headers = ["Domain Name", "Request Count", "Network Usage Percentage"]
     ws.append(headers)
 
-    total_requests = sum(domain['request_count'] for domain in domain_data.values())
+    # Calcul du total des requêtes
+    total_requests = sum(data['request_count'] for data in domain_data.values())
 
+    # Ajout des données
     for domain, data in domain_data.items():
-        percentage_usage = (data['request_count'] / total_requests) * 100 if total_requests > 0 else 0
-        # Save the domain as a full URL
-        if domain:  # Check if a valid domain was found
-            hyperlink = f"https://{domain}"
+        if domain:  # Vérifie que le domaine est valide
+            percentage_usage = (data['request_count'] / total_requests) * 100 if total_requests > 0 else 0
+            hyperlink = f"{domain}"  # Ajout du lien hypertexte
             ws.append([hyperlink, data['request_count'], round(percentage_usage, 2)])
             ws.cell(row=ws.max_row, column=1).hyperlink = hyperlink
             ws.cell(row=ws.max_row, column=1).font = Font(underline="single", color="0000FF")
 
+    # Mise en forme des en-têtes
     for col, header in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = Font(bold=True, color="FFFFFF")
@@ -191,25 +194,35 @@ def save_domain_usage_data(domain_data, file_name="Domain_Usage_Report.xlsx"):
         cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
         cell.border = Border(bottom=Side(style="thin"))
 
+    # Ajustement de la largeur des colonnes
     for col in range(1, 4):
         column_letter = get_column_letter(col)
         ws.column_dimensions[column_letter].width = 30
 
+    # Application des couleurs conditionnelles
     apply_colors(ws, 2)
+
+    # Application des bordures noires
     apply_borders(ws)
 
+    # Création d'un graphique
     chart = LineChart()
     chart.title = "Domain Usage"
     chart.y_axis.title = "Request Count"
     chart.x_axis.title = "Domain Name"
 
+    # Données pour le graphique
     data = Reference(ws, min_col=2, min_row=1, max_row=ws.max_row)
     categories = Reference(ws, min_col=1, min_row=2, max_row=ws.max_row)
     chart.add_data(data, titles_from_data=True)
     chart.set_categories(categories)
 
+    # Position du graphique
     ws.add_chart(chart, "E5")
+
+    # Sauvegarde du fichier Excel
     wb.save(file_name)
+
 
 # Main function to log system usage
 def log_system_usage(num):
