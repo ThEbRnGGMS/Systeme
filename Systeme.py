@@ -170,48 +170,67 @@ def save_deleted_data(deleted_data):
 
 
 # Function to save domain usage data with hyperlinks
+# Function to save domain usage data with hyperlinks
 def save_domain_usage_data(domain_data, file_name="Domain_Usage_Report.xlsx"):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Domain Usage"
+    try:
+        # Create a new workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Domain Usage"
 
-    headers = ["Domain Name", "Request Count", "Network Usage Percentage"]
-    ws.append(headers)
+        # Add headers
+        headers = ["Domain Name", "Request Count", "Network Usage Percentage"]
+        ws.append(headers)
 
-    total_requests = sum(data['request_count'] for data in domain_data.values())
+        # Calculate total requests
+        total_requests = sum(data['request_count'] for data in domain_data.values())
 
-    for domain, data in domain_data.items():
-        if domain:
-            percentage_usage = (data['request_count'] / total_requests) * 100 if total_requests > 0 else 0
-            ws.append([domain, data['request_count'], round(percentage_usage, 2)])
-            ws.cell(row=ws.max_row, column=1).hyperlink = f"http://{domain}"
-            ws.cell(row=ws.max_row, column=1).font = Font(underline="single", color="0000FF")
+        # Fill in domain data
+        for domain, data in domain_data.items():
+            if domain:
+                percentage_usage = (data['request_count'] / total_requests) * 100 if total_requests > 0 else 0
+                ws.append([domain, data['request_count'], round(percentage_usage, 2)])
+                ws.cell(row=ws.max_row, column=1).hyperlink = f"http://{domain}"
+                ws.cell(row=ws.max_row, column=1).font = Font(underline="single", color="0000FF")
 
-    for col, header in enumerate(headers, start=1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
-        cell.border = Border(bottom=Side(style="thin"))
+        # Format headers
+        for col, header in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+            cell.border = Border(bottom=Side(style="thin"))
 
-    for col in range(1, 4):
-        ws.column_dimensions[get_column_letter(col)].width = 30
+        # Adjust column widths
+        for col in range(1, 4):
+            ws.column_dimensions[get_column_letter(col)].width = 30
 
-    apply_colors(ws, 2)
-    apply_borders(ws)
+        # Apply colors and borders
+        apply_colors(ws, 2)
+        apply_borders(ws)
 
-    chart = LineChart()
-    chart.title = "Domain Usage"
-    chart.y_axis.title = "Request Count"
-    chart.x_axis.title = "Domain Name"
+        # Add a chart
+        chart = LineChart()
+        chart.title = "Domain Usage"
+        chart.y_axis.title = "Request Count"
+        chart.x_axis.title = "Domain Name"
 
-    data = Reference(ws, min_col=2, min_row=1, max_row=ws.max_row)
-    categories = Reference(ws, min_col=1, min_row=2, max_row=ws.max_row)
-    chart.add_data(data, titles_from_data=True)
-    chart.set_categories(categories)
+        data = Reference(ws, min_col=2, min_row=1, max_row=ws.max_row)
+        categories = Reference(ws, min_col=1, min_row=2, max_row=ws.max_row)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(categories)
 
-    ws.add_chart(chart, "E5")
-    wb.save(file_name)
+        ws.add_chart(chart, "E5")
+
+        # Save the workbook
+        wb.save(file_name)
+        print(f"Domain usage data saved successfully to '{file_name}'.")
+
+    except PermissionError:
+        print(f"Permission denied: Unable to save the file '{file_name}'. Please close the file if it is open.")
+    except Exception as e:
+        print(f"An error occurred while saving domain usage data: {e}")
+
 
 
 # Main function to log system usage
