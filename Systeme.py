@@ -9,7 +9,6 @@ from openpyxl.chart import LineChart, Reference
 import socket
 import re
 
-
 # Create an Excel file and initialize the sheet
 def create_excel_file(file_name):
     wb = openpyxl.Workbook()
@@ -35,17 +34,14 @@ def create_excel_file(file_name):
 
     wb.save(file_name)
 
-
 # Function to get RAM usage in GB
 def get_ram_usage_in_gb():
     ram = psutil.virtual_memory()
     return round(ram.used / (1024 ** 3), 2)
 
-
 # Function to get CPU usage in %
 def get_cpu_usage_in_percent():
     return psutil.cpu_percent(interval=1)
-
 
 # Function to get network usage in MB/s
 def get_network_usage_in_mbps():
@@ -61,7 +57,6 @@ def get_network_usage_in_mbps():
 
     return round(sent_per_sec + recv_per_sec, 2)
 
-
 # Function to get the number of HTTP/HTTPS connections
 def get_http_connections_count():
     http_count = 0
@@ -70,23 +65,24 @@ def get_http_connections_count():
             http_count += 1
     return http_count
 
-
 # Function to get the domain name from an IP address
 def get_domain_from_ip(ip):
     try:
+        # Reverse lookup of the IP to get a domain name
         domain = socket.gethostbyaddr(ip)
         domain_name = domain[0]
 
-        if re.match(r"^(?:\d{1,3}\.){3}\d{1,3}$", domain_name) or "ip-" in domain_name:
-            return None
+        # Ensure the domain name looks valid
+        if re.match(r"^(?:\d{1,3}\.){3}\d{1,3}$", domain_name) or not "." in domain_name:
+            return None  # Skip invalid domains
 
-        if domain_name and "." in domain_name:
-            return domain_name
-        else:
-            return None
-    except (socket.herror, socket.gaierror):
-        return None
-
+        return domain_name
+    except socket.herror:
+        # If reverse DNS lookup fails, return the IP as a fallback
+        return ip
+    except socket.gaierror:
+        # Handle general DNS resolution errors
+        return ip
 
 # Function to collect data on HTTP/HTTPS requests
 def get_domain_usage_data():
@@ -95,15 +91,14 @@ def get_domain_usage_data():
     for conn in psutil.net_connections(kind='inet'):
         if conn.status == 'ESTABLISHED' and conn.raddr and conn.raddr.port in (80, 443):
             ip = conn.raddr.ip
-            domain = get_domain_from_ip(ip)
+            domain = get_domain_from_ip(ip)  # Resolve domain
 
-            if domain:
-                if domain not in domain_data:
-                    domain_data[domain] = {'request_count': 0}
-                domain_data[domain]['request_count'] += 1
+            if domain not in domain_data:
+                domain_data[domain] = {'request_count': 0}
+
+            domain_data[domain]['request_count'] += 1
 
     return domain_data
-
 
 # Function to apply conditional colors
 def apply_colors(ws, col_idx):
@@ -116,7 +111,6 @@ def apply_colors(ws, col_idx):
             cell.fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
         elif cell.value < average_value:
             cell.fill = PatternFill(start_color="CCFFCC", end_color="CCFFCC", fill_type="solid")
-
 
 # Function to add individual charts
 def add_individual_charts(ws):
@@ -136,7 +130,6 @@ def add_individual_charts(ws):
 
         ws.add_chart(chart, chart_positions[i])
 
-
 # Function to apply black borders around all cells
 def apply_borders(ws):
     for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
@@ -147,7 +140,6 @@ def apply_borders(ws):
                 left=Side(style="thin", color="000000"),
                 right=Side(style="thin", color="000000")
             )
-
 
 # Function to save deleted data
 def save_deleted_data(deleted_data):
@@ -168,8 +160,6 @@ def save_deleted_data(deleted_data):
     add_individual_charts(ws)
     wb.save(file_name)
 
-
-# Function to save domain usage data with hyperlinks
 # Function to save domain usage data with hyperlinks
 def save_domain_usage_data(domain_data, file_name="Domain_Usage_Report.xlsx"):
     try:
@@ -231,8 +221,6 @@ def save_domain_usage_data(domain_data, file_name="Domain_Usage_Report.xlsx"):
     except Exception as e:
         print(f"An error occurred while saving domain usage data: {e}")
 
-
-
 # Main function to log system usage
 def log_system_usage(num):
     main_file = "System_Report.xlsx"
@@ -256,31 +244,4 @@ def log_system_usage(num):
     ram_usage = get_ram_usage_in_gb()
     cpu_usage = get_cpu_usage_in_percent()
     network_usage = get_network_usage_in_mbps()
-    http_count = get_http_connections_count()
-
-    domain_data = get_domain_usage_data()
-
-    ws.append([timestamp, ram_usage, cpu_usage, network_usage, http_count])
-
-    for row in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row, min_col=1, max_col=5):
-        for cell in row:
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-
-    for col_idx in range(2, 6):
-        apply_colors(ws, col_idx)
-
-    apply_borders(ws)
-    add_individual_charts(ws)
-    wb.save(main_file)
-
-    save_domain_usage_data(domain_data)
-    print(f"{num} - {timestamp} - RAM: {ram_usage} GB, CPU: {cpu_usage}%, Network: {network_usage} MB/s, Connections: {http_count}")
-
-
-# Periodic execution
-if __name__ == "__main__":
-    num = 0
-    while True:
-        num += 1
-        log_system_usage(num)
-        time.sleep(1)
+    http_count
